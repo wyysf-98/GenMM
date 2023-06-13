@@ -8,4 +8,4 @@
   <img src="https://wyysf-98.github.io/GenMM/assets/images/teaser.png"/>
 </p>
 
-<p align="center"> Code and demo will be released in next week... 🏗️ 🚧 🔨</p>
+<p align="center"> Code and demo will be released in next week(There is a little delay, because there are a lot of things recently)... 🏗️ 🚧 🔨</p>
