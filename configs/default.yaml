@@ -14,8 +14,8 @@ num_frames: '2x_nframes'
 alpha: 0.01
 num_steps: 3
 noise_sigma: 10.0
-coarse_ratio: '3x_patchsize'
-# coarse_ratio: '0.1x_nframes'
+coarse_ratio: '5x_patchsize'
+# coarse_ratio: '0.2x_nframes'
 pyr_factor: 0.75
 num_stages_limit: -1
 patch_size: 11
