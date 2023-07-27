@@ -1,40 +1,27 @@
 ################################################################
 # This configuration uses the same input format of GANimmator for generation
 ################################################################
-outout_dir: './output/random_synthesis_ganimator_data'
+outout_dir: './output/ganimator_format'
 
 # for GANimator BVH data
-skeleton_aware: true
-use_velo: true
 repr: 'repr6d'
-contact: true
+skeleton_name: 'mixamo'
+use_velo: true
 keep_y_pos: true
+padding_last: true
+requires_contact: true
 joint_reduction: true
-
+skeleton_aware: false
+joints_group: null
 
 # generate parameters
-coarse_ratio: -1
-coarse_ratio_factor: 10
+num_frames: '2x_nframes'
+alpha: 0.01
+num_steps: 3
+noise_sigma: 10.0
+coarse_ratio: '3x_patchsize'
+# coarse_ratio: '0.1x_nframes'
 pyr_factor: 0.75
 num_stages_limit: -1
-noise_sigma: 10.0
 patch_size: 11
 loop: false
-loss_type: 'PatchCoherent'
-coherent_alpha: 0.01
-optimizer: 'RMSprop'
-lr: 0.01
-num_steps: 3
-decay_rate: 0.9
-decay_steps: 0.9
-
-
-# for blender visualization
-visualization: true
-fbx_path: null
-reso: '[1920, 1080]'
-samples: 64
-fps: 30
-frame_end: -1
-camera_pos: '[0, -8, 2.5]'
-target_pos: '[0, 2, 0.5]'

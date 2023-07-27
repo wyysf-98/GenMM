@@ -3,22 +3,17 @@ from os.path import join as pjoin
 import numpy as np
 import copy
 import torch
-import torch.nn.functional as F
 from utils.transforms import quat2repr6d, quat2euler, repr6d2quat
+from .motion import MotionData
 
 class TracksParser():
-    def __init__(self, tracks_json, scale=1.0, requires_contact=False, joint_reduction=False):
-        assert requires_contact==False, 'contact is not implemented for tracks data yet!!!'
-
+    def __init__(self, tracks_json, scale):
         self.tracks_json = tracks_json
         self.scale = scale
-        self.requires_contact = requires_contact
-        self.joint_reduction = joint_reduction
         
         self.skeleton_names = []
         self.rotations = []
         for i, track in enumerate(self.tracks_json):
-            # print(i, track['name'])
             self.skeleton_names.append(track['name'])
             if i == 0:
                 assert track['type'] == 'vector'
@@ -45,11 +40,6 @@ class TracksParser():
         if rot_only:
             return rotations.reshape(rotations.shape[0], -1)
 
-        if self.requires_contact:
-            virtual_contact = torch.zeros_like(rotations[:, :len(self.skeleton.contact_id)])
-            virtual_contact[..., 0] = self.contact_label
-            rotations = torch.cat([rotations, virtual_contact], dim=1)
-
         rotations = rotations.reshape(rotations.shape[0], -1)
         return torch.cat((rotations, positions), dim=-1)
 
@@ -66,87 +56,52 @@ class TracksParser():
         return torch.tensor(self.position, dtype=torch.float32)
 
 class TracksMotion:
-    def __init__(self, tracks_json, scale=1.0, repr='repr6d', padding=False,
-                 use_velo=True, contact=False, keep_y_pos=True, joint_reduction=False):
-        self.scale = scale
-        self.tracks = TracksParser(tracks_json, scale, requires_contact=contact, joint_reduction=joint_reduction)
-        self.raw_motion = self.tracks.to_tensor(repr=repr)
-        self.extra = {
+    def __init__(self, tracks_json, scale=1.0, repr='quat', use_velo=True, keep_y_pos=False, padding_last=False):
+        '''
+        TracksMotion constructor
+        Args:
+            tracks_json      : dict, json format tracks data to load from
+            scale            : float, scale of the tracks motion data
+            repr             : string, rotation representation, support ['quat', 'repr6d', 'euler'] 
+            use_velo         : book, whether to transform the joints positions to velocities
+            keep_y_pos       : bool, whether to keep y position when converting to velocity
+            padding_last     : bool, whether to pad the last position
+        '''
+        self.tracks_json = tracks_json
 
-        }
-
-        self.repr = repr
-        if repr == 'quat':
-            self.n_rot = 4
-        elif repr == 'repr6d':
-            self.n_rot = 6
-        elif repr == 'euler':
-            self.n_rot = 3
-        self.padding = padding
-        self.use_velo = use_velo
-        self.contact = contact
-        self.keep_y_pos = keep_y_pos
-        self.joint_reduction = joint_reduction
-
-        self.raw_motion = self.raw_motion.permute(1, 0).unsqueeze_(0) # Shape = (1, n_channel, n_frames)
-        self.extra['global_pos'] = self.raw_motion[:, -3:, :]
-
-        if padding:
-            self.n_pad = self.n_rot - 3 # pad position channels
-            paddings = torch.zeros_like(self.raw_motion[:, :self.n_pad])
-            self.raw_motion = torch.cat((self.raw_motion, paddings), dim=1)
-        else:
-            self.n_pad = 0
-        self.raw_motion = torch.cat((self.raw_motion[:, :-3-self.n_pad], self.raw_motion[:, -3-self.n_pad:]), dim=1)
-
-        if self.use_velo:
-            self.msk = [-3, -2, -1] if not keep_y_pos else [-3, -1]
-            self.raw_motion = self.pos2velo(self.raw_motion)
-
-        self.n_contact = len(self.tracks.skeleton.contact_id) if contact else 0
+        self.raw_data = TracksParser(tracks_json, scale)
+        self.motion_data = MotionData(self.raw_data.to_tensor(repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_y_pos=keep_y_pos,
+                                      padding_last=padding_last, contact_id=None)
+    @property
+    def repr(self):
+        return self.motion_data.repr
 
     @property
-    def n_channels(self):
-        return self.raw_motion.shape[1]
+    def use_velo(self):
+        return self.motion_data.use_velo
 
-    def __len__(self):
-        return self.raw_motion.shape[-1]
+    @property
+    def keep_y_pos(self):
+        return self.motion_data.keep_y_pos
+    
+    @property
+    def padding_last(self):
+        return self.motion_data.padding_last
 
-    def pos2velo(self, pos):
-        msk = [i - self.n_pad for i in self.msk]
-        velo = pos.detach().clone().to(pos.device)
-        velo[:, msk, 1:] = pos[:, msk, 1:] - pos[:, msk, :-1]
-        self.begin_pos = pos[:, msk, 0].clone()
-        velo[:, msk, 0] = pos[:, msk, 1]
-        return velo
+    @property
+    def n_pad(self):
+        return self.motion_data.n_pad
 
-    def velo2pos(self, velo):
-        msk = [i - self.n_pad for i in self.msk]
-        pos = velo.detach().clone().to(velo.device)
-        pos[:, msk, 0] = self.begin_pos.to(velo.device)
-        pos[:, msk] = torch.cumsum(velo[:, msk], dim=-1)
-        return pos
+    @property
+    def n_rot(self):
+        return self.motion_data.n_rot
 
-    def motion2pos(self, motion):
-        if not self.use_velo:
-            return motion
-        else:
-            self.velo2pos(motion.clone())
+    def sample(self, size=None, slerp=False):
+        '''
+        Sample motion data, support slerp
+        '''
+        return self.motion_data.sample(size, slerp)
 
-    def sample(self, size=None, slerp=False, align_corners=False):
-        if size is None:
-            return {'motion': self.raw_motion, 'extra': self.extra}
-        else:
-            if slerp:
-                raise NotImplementedError('slerp is not not implemented yet!!!')
-            else:
-                motion = F.interpolate(self.raw_motion, size=size, mode='linear', align_corners=align_corners)
-                extra = {}
-                if 'global_pos' in self.extra.keys():
-                    extra['global_pos'] = F.interpolate(self.extra['global_pos'], size=size, mode='linear', align_corners=align_corners)
-
-            return motion
-            # return {'motion': motion, 'extra': extra}
 
     def parse(self, motion, keep_velo=False,):
         """
@@ -156,14 +111,12 @@ class TracksMotion:
         motion = motion.clone()
 
         if self.use_velo and not keep_velo:
-            motion = self.velo2pos(motion)
+            motion = self.motion_data.to_position(motion)
         if self.n_pad:
             motion = motion[:, :-self.n_pad]
-        if self.contact:
-            raise NotImplementedError('contact is not implemented yet!!!')
 
         motion = motion.squeeze().permute(1, 0)
-        pos = motion[..., -3:] / self.scale
+        pos = motion[..., -3:] / self.raw_data.scale
         rot = motion[..., :-3].reshape(motion.shape[0], -1, self.n_rot)
         if self.repr == 'repr6d':
             rot = repr6d2quat(rot)
@@ -171,7 +124,7 @@ class TracksMotion:
             raise NotImplementedError('parse "euler is not implemented yet!!!')
 
         times = []
-        out_tracks_json = copy.deepcopy(self.tracks.tracks_json)
+        out_tracks_json = copy.deepcopy(self.tracks_json)
         for i, _track in enumerate(out_tracks_json):
             if i == 0:
                 times = [ j * out_tracks_json[i]['times'][1] for j in range(motion.shape[0])]

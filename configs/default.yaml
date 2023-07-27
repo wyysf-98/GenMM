@@ -7,6 +7,7 @@ padding_last: false
 requires_contact: false
 joint_reduction: false
 skeleton_aware: false
+joints_group: null
 
 # generate parameters
 num_frames: '2x_nframes'

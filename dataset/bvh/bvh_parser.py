@@ -21,7 +21,7 @@ class Skeleton:
             if ':' in name:
                 self._names[i] = name[name.find(':')+1:]
 
-        if joint_reduction:
+        if joint_reduction or skeleton_conf is not None:
             assert skeleton_conf is not None, 'skeleton_conf can not be None if you use joint reduction'
             corps_names = skeleton_conf['corps_names']
             self.contact_names = skeleton_conf['corps_names']
@@ -118,16 +118,16 @@ class BVH_file:
             self.contact_names = []
 
         self.fk = ForwardKinematicsJoint(self.skeleton.parent, self.skeleton.offsets)
+        self.writer = WriterWrapper(self.skeleton.parent, self.skeleton.offsets)
 
         self.auto_scale = auto_scale
         if auto_scale:
             self.scale = 1. / np.ceil(self.skeleton.offsets.max().cpu().numpy())
-            print(self.scale)
+            print(f'rescale the skeleton with scale: {self.scale}')
             self.rescale(self.scale)
         else:
             self.scale = 1.0
 
-        self.writer = WriterWrapper(self.skeleton.parent, self.skeleton.offsets)
         if self.requires_contact:
             gl_pos = self.joint_position()
             self.contact_label = foot_contact(gl_pos[:, self.skeleton.contact_id],

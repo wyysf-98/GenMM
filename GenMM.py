@@ -21,9 +21,9 @@ class GenMM:
         self.silent = silent
 
     def _get_pyramid_lengths(self, final_len, coarse_ratio, pyr_factor):
-        """
+        '''
         Get a list of pyramid lengths using given target length and ratio
-        """
+        '''
         lengths = [int(np.round(final_len * coarse_ratio))]
         while lengths[-1] < final_len:
             lengths.append(int(np.round(lengths[-1] / pyr_factor)))
@@ -64,7 +64,9 @@ class GenMM:
         return target_pyramid
 
     def _get_initial_motion(self, init_length, noise_sigma):
-        """Prepare the initial motion for optimization"""   
+        '''
+        Prepare the initial motion for optimization
+        '''
         initial_motion = F.interpolate(torch.cat([self.target_pyramid[0][i] for i in range(self.num_target)], dim=-1),
                                        size=init_length, mode='linear', align_corners=True)
         if noise_sigma > 0:
@@ -137,16 +139,20 @@ class GenMM:
     @staticmethod
     @torch.no_grad()
     def match_and_blend(synthesized, targets, criteria, n_steps, pbar, ext=None):
-        """
+        '''
         Minimizes criteria bewteen synthesized and target
         Args:
-            targets (torch.Tensor): Target data.
-            ext (dict): extra configurations.
-        """
+            synthesized    : torch.Tensor, optimized motion data
+            targets        : torch.Tensor, target motion data
+            criteria       : optimmize target function
+            n_steps        : int, number of steps to optimize
+            pbar           : logger
+            ext            : extra configurations or constraints (optional)
+        '''
         losses = []
         for _i in range(n_steps):
             synthesized, loss = criteria(synthesized, targets, ext=ext, return_blended_results=True)
-            
+
             # Update staus
             losses.append(loss.item())
             pbar.step()

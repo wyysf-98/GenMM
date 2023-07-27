@@ -1,6 +1,6 @@
 torch
-filterpy==1.4.5
 torchvision==0.12.0
+filterpy==1.4.5
 tensorboardX==2.5
 protobuf==3.20.1
 scipy==1.7.3

@@ -39,7 +39,6 @@ class BVHMotion:
             use_velo         : book, whether to transform the joints positions to velocities
             keep_y_pos       : bool, whether to keep y position when converting to velocity
             padding_last     : bool, whether to pad the last position
-            skeleton_conf    : dict, provide configuration for contact detection and joint detection
             requires_contact : bool, whether to concatenate contact information
             joint_reduction  : bool, whether to reduce the joint number
         '''
@@ -78,7 +77,7 @@ class BVHMotion:
         return self.motion_data.n_pad
     
     @property
-    def n_concat(self):
+    def n_contact(self):
         return self.motion_data.n_contact
 
     @property
@@ -116,6 +115,9 @@ class BVHMotion:
         if contact is not None:
             np.save(filename + '.contact', contact.detach().cpu().numpy())
 
+        # rescale the output
+        self.raw_data.rescale(1. / self.raw_data.scale)
+        pos *= 1. / self.raw_data.scale
         self.raw_data.writer.write(filename, rot, pos, names=self.raw_data.skeleton.names, repr=self.repr)
 
 
@@ -124,6 +126,6 @@ def load_multiple_dataset(name_list, **kargs):
             names = [line.strip() for line in f.readlines()]
         datasets = []
         for f in names:
-            kargs['bvh_file'] = osp.join(name_list, f)
-            datasets.append(MotionData(**kargs))
+            kargs['bvh_file'] = osp.join(osp.dirname(name_list), f)
+            datasets.append(BVHMotion(**kargs))
         return datasets

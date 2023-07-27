@@ -2,13 +2,13 @@ from dataset.bvh.bvh_parser import BVH_file
 from os.path import join as pjoin
 import numpy as np
 import torch
-from dataset.bvh.contact import constrain_from_contact
-from dataset.bvh.kinematics import InverseKinematicsJoint2
-from dataset.bvh.transforms import repr6d2quat
+from utils.contact import constrain_from_contact
+from utils.kinematics import InverseKinematicsJoint2
+from utils.transforms import repr6d2quat
 from tqdm import tqdm
 import argparse
 import matplotlib.pyplot as plt
-
+from dataset.bvh_motion import skeleton_confs
 
 def continuous_filter(contact, length=2):
     contact = contact.copy()
@@ -38,8 +38,7 @@ def fix_negative_height(contact, constrain, cid):
 
 
 def fix_contact(bvh_file, contact):
-    # device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     cid = bvh_file.skeleton.contact_id
     glb = bvh_file.joint_position()
     rotation = bvh_file.get_rotation(repr='repr6d').to(device)
@@ -52,14 +51,13 @@ def fix_contact(bvh_file, contact):
     ik_solver = InverseKinematicsJoint2(rotation, position, bvh_file.skeleton.offsets.to(device), bvh_file.skeleton.parent,
                                         constrain[:, cid], cid, 0.1, 0.01, use_velo=True)
 
-    loop = tqdm(range(100))
+    loop = tqdm(range(500))
     losses = []
     for i in loop:
         loss = ik_solver.step()
         loop.set_description(f'loss = {loss:.07f}')
         losses += [loss]
         plt.plot(losses)
-        plt.savefig('losses.png')
     
 
     return repr6d2quat(ik_solver.rotations.detach()), ik_solver.get_position()
@@ -81,6 +79,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--prefix', type=str, required=True)
     parser.add_argument('--name', type=str, required=True)
+    parser.add_argument('--skeleton_name', type=str, required=True)
     args = parser.parse_args()
     if args.prefix[0] == '/':
         prefix = args.prefix
@@ -88,8 +87,9 @@ if __name__ == '__main__':
         prefix = f'./results/{args.prefix}'
     name = args.name
     contact = np.load(pjoin(prefix, name + '.bvh.contact.npy'))
-    bvh_file = BVH_file(pjoin(prefix, name + '.bvh'), no_scale=True, requires_contact=True)
+    bvh_file = BVH_file(pjoin(prefix, name + '.bvh'), skeleton_confs[args.skeleton_name], auto_scale=False, requires_contact=True)
 
     res = fix_contact(bvh_file, contact)
+    plt.savefig(f'{prefix}/losses.png')
 
     bvh_file.writer.write(pjoin(prefix, name + '_fixed.bvh'), res[0], res[1], names=bvh_file.skeleton.names, repr='quat')
