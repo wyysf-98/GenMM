@@ -2,8 +2,9 @@ import os
 import os.path as osp
 import argparse
 from GenMM import GenMM
-from utils.base import ConfigParser, set_seed
+from nearest_neighbor.losses import PatchCoherentLoss
 from dataset.bvh_motion import BVHMotion, load_multiple_dataset
+from utils.base import ConfigParser, set_seed
 
 args = argparse.ArgumentParser(
     description='Random shuffle the input motion sequence')
@@ -18,7 +19,8 @@ args.add_argument('-c', '--config', default='./configs/default.yaml',
                   type=str, help='config file path.')
 args.add_argument('-s', '--seed', default=None,
                   type=int, help='random seed used.')
-args.add_argument('-d', '--device', default="cuda:0",
+# args.add_argument('-d', '--device', default="cuda:0",
+args.add_argument('-d', '--device', default="cpu",
                   type=str, help='device to use.')
 args.add_argument('--post_precess', action='store_true',
                   help='whether to use IK post-process to fix foot contact.')
@@ -41,10 +43,12 @@ args.add_argument('--joint_reduction', type=int,
                   help='whether to simplify the skeleton using provided skeleton config.')
 args.add_argument('--skeleton_aware', type=int,
                   help='whether to enable skeleton-aware component.')
+args.add_argument('--joints_group', type=str,
+                  help='joints spliting group for using skeleton-aware component.')
 # for synthesis
-args.add_argument('--num_frames', type=str, default='2x',
+args.add_argument('--num_frames', type=str, 
                   help='number of synthesized frames, supported Nx(N times) and int input.')
-args.add_argument('--coherent_alpha', type=float,
+args.add_argument('--alpha', type=float,
                   help='completeness/diversity trade-off alpha value.')
 args.add_argument('--num_steps', type=int,
                   help='number of optimization steps at each pyramid level.')
@@ -84,20 +88,19 @@ def generate(cfg):
         raise ValueError('exemplar must be a bvh file or a txt file')
     prefix = f"s{cfg.seed}+{cfg.num_frames}+{cfg.repr}+use_velo_{cfg.use_velo}+kypose_{cfg.keep_y_pos}+padding_{cfg.padding_last}" \
              f"+contact_{cfg.requires_contact}+jredu_{cfg.joint_reduction}+n{cfg.noise_sigma}+pyr{cfg.pyr_factor}" \
-             f"+r{cfg.coarse_ratio}_{cfg.coarse_ratio_factor}+itr{cfg.num_steps}+ps_{cfg.patch_size}+alpha_{cfg.coherent_alpha}" \
+             f"+r{cfg.coarse_ratio}_{cfg.coarse_ratio_factor}+itr{cfg.num_steps}+ps_{cfg.patch_size}+alpha_{cfg.alpha}" \
              f"+loop_{cfg.loop}"
 
     # perform the generation
-    model = GenMM(
-        init_mode=f"random_synthesis/{cfg.num_frames}",
-        noise_sigma=cfg.noise_sigma,
-        coarse_ratio=cfg.coarse_ratio,
-        coarse_ratio_factor=cfg.coarse_ratio_factor,
-        pyr_factor=cfg.pyr_factor,
-        num_stages_limit=cfg.num_stages_limit,
-        device=cfg.device,
-    )
-    syn = model.run(motion_data, mode=cfg.run_mode, ext=conf,
+    model = GenMM(device=cfg.device, silent=True if cfg.mode == 'eval' else False)
+    criteria = PatchCoherentLoss(patch_size=cfg.patch_size, alpha=cfg.alpha, loop=cfg.loop, cache=True)
+    syn = model.run(motion_data, criteria,
+                    num_frames=cfg.num_frames,
+                    num_steps=cfg.num_steps,
+                    noise_sigma=cfg.noise_sigma,
+                    patch_size=cfg.patch_size, 
+                    coarse_ratio=cfg.coarse_ratio,
+                    pyr_factor=cfg.pyr_factor,
                     debug_dir=save_dir if cfg.mode == 'debug' else None)
     
     # save the generated results
@@ -108,7 +111,6 @@ def generate(cfg):
     if cfg.post_precess:
         cmd = f"python fix_contact.py --prefix {osp.abspath(save_dir)} --name syn"
         os.system(cmd)
-
 
 if __name__ == '__main__':
     generate(cfg)
