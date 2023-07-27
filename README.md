@@ -59,13 +59,6 @@ We thank [@stefanonuvoli](https://github.com/stefanonuvoli/skinmixer) for the he
 If you find our work useful for your research, please consider citing using the following BibTeX entry.
 
 ```BibTeX
-@article{weiyu23GenMM,
-    author    = {Weiyu Li and Xuelin Chen and Peizhuo Li and Olga Sorkine-Hornung and Baoquan Chen},
-    title     = {Example-based Motion Synthesis via Generative Motion Matching},
-    journal   = {ACM Transactions on Graphics (TOG)},
-    year      = {2023},
-    publisher = {ACM}
-}
 @article{10.1145/weiyu23GenMM,
     author     = {Li, Weiyu and Chen, Xuelin and Li, Peizhuo and Sorkine-Hornung, Olga and Chen, Baoquan},
     title      = {Example-Based Motion Synthesis via Generative Motion Matching},
