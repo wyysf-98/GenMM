@@ -46,7 +46,7 @@ For local quick inference demo using .bvh file, you can use
 python run_random_generation.py -i './data/Malcolm/Gangnam-Style.bvh'
 ```
 More configuration can be found in the `run_random_generation.py`.
-We use an Apple M1 and NVIDIA Tesla V100 with 32 GB RAM to generate each motion, which takes about ~0.5s and ~0.02s as mentioned in our paper.
+We use an Apple M1 and NVIDIA Tesla V100 with 32 GB RAM to generate each motion, which takes about ~0.2s and ~0.05s as mentioned in our paper.
 
 
 ## Acknowledgement
