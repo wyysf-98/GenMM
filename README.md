@@ -45,16 +45,7 @@ For local quick inference demo using .bvh file, you can use
 ```sh
 python run_random_generation.py -i './data/Malcolm/Gangnam-Style.bvh'
 ```
-More configuration can be found in the `run_random_generation.py`
-
-## Optimization
-We provide a colab for a demo
-<p>
-  <a href="https://colab.research.google.com/github/wyysf-98/Sin3DGen/blob/main/colab_demo.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg">
-  </a>
-</p>
-
+More configuration can be found in the `run_random_generation.py`.
 We use an Apple M1 and NVIDIA Tesla V100 with 32 GB RAM to generate each motion, which takes about ~0.5s and ~0.02s as mentioned in our paper.
 
 
