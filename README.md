@@ -8,4 +8,4 @@
   <img src="https://wyysf-98.github.io/GenMM/assets/images/teaser.png"/>
 </p>
 
-<p align="center"> All Code and demo will be released in this week(all code and blender addon will be released this week :D, sorry for the delay) 🏗️ 🚧 🔨</p>
+<p align="center"> All Code and demo will be released in this week(ongoing...) 🏗️ 🚧 🔨</p>
