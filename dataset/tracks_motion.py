@@ -3,8 +3,8 @@ from os.path import join as pjoin
 import numpy as np
 import copy
 import torch
-from utils.transforms import quat2repr6d, quat2euler, repr6d2quat
 from .motion import MotionData
+from ..utils.transforms import quat2repr6d, quat2euler, repr6d2quat
 
 class TracksParser():
     def __init__(self, tracks_json, scale):

@@ -32,7 +32,7 @@ def generate(data):
                     num_steps=data['setting']['num_steps'],
                     noise_sigma=data['setting']['noise_sigma'],
                     patch_size=data['setting']['patch_size'], 
-                    coarse_ratio=f'{data["setting"]["patch_size"]}x_nframes',
+                    coarse_ratio=f'{data["setting"]["coarse_ratio"]}x_nframes',
                     # coarse_ratio=f'3x_patchsize',
                     pyr_factor=data['setting']['pyr_factor'])
     end = time.time()

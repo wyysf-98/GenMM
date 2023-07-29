@@ -100,6 +100,6 @@ class MotionData:
         msk = [i - self.n_pad for i in self.velo_mask]
         pos = velo.detach().clone().to(velo.device)
         pos[:, msk, 0] = self.begin_pos.to(velo.device)
-        pos[:, msk] = torch.cumsum(velo[:, msk], dim=-1)
+        pos[:, msk] = torch.cumsum(pos[:, msk], dim=-1)
         self.begin_pos = None
         return pos

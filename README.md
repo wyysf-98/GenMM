@@ -10,6 +10,11 @@
 
 <p align="center"> All Code and demo will be released in this week(still ongoing...) 🏗️ 🚧 🔨</p>
 
+- [x] Release main code
+- [x] Release blender addon
+- [ ] Detailed README and installation guide
+- [ ] Release skeleton-aware component
+- [ ] Release codes for application
 
 ## Prerequisite
 
@@ -62,18 +67,12 @@ If you find our work useful for your research, please consider citing using the 
 @article{10.1145/weiyu23GenMM,
     author     = {Li, Weiyu and Chen, Xuelin and Li, Peizhuo and Sorkine-Hornung, Olga and Chen, Baoquan},
     title      = {Example-Based Motion Synthesis via Generative Motion Matching},
-    year       = {2023},
-    issue_date = {August 2023},
-    publisher  = {Association for Computing Machinery},
-    address    = {New York, NY, USA},
+    journal    = {ACM Transactions on Graphics (TOG)},
     volume     = {42},
     number     = {4},
-    issn       = {0730-0301},
-    url        = {https://doi.org/10.1145/3592395},
-    doi        = {10.1145/3592395},
-    journal    = {ACM Trans. Graph.},
-    month      = {jul},
+    year       = {2023},
     articleno  = {94},
-    numpages   = {12},
+    doi = {10.1145/3592395},
+    publisher  = {Association for Computing Machinery},
 }
 ```
