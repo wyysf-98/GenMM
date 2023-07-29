@@ -2,7 +2,8 @@
 repr: 'repr6d'
 skeleton_name: null
 use_velo: true
-keep_y_pos: true
+keep_up_pos: true
+up_axis: 'Y_UP'
 padding_last: false
 requires_contact: false
 joint_reduction: false

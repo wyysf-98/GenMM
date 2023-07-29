@@ -58,9 +58,18 @@ We use an Apple M1 and NVIDIA Tesla V100 with 32 GB RAM to generate each motion,
 You can install and use the blender add-on with easy installation as our method is efficient and you do not need to install CUDA Toolkit.
 We test our code using blender 3.22.0, and will support 2.8.0 in the future.
 
-Step 1: Find yout blender python path. Usually, for WINDOWS is like 'C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\bin', for Linux is like '/path/to/blender/blender-path/3.2/python/bin/python3' and for MacOS is like '/Applications/Blender.app/Contents/Resources/3.2/python/bin/python3.10'. 
+Step 1: Find yout blender python path. Common paths are as follows
+```sh
+(Windows) 'C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\bin'
+(Linux) '/path/to/blender/blender-path/3.2/python/bin'
+(Windows) '/Applications/Blender.app/Contents/Resources/3.2/python/bin'
+```
 
-Step 2: Install required packages. Open your shell(Linux) or powershell(Windows), enter 'cd {your python path} && pip3 install -r docker/requirements.txt && pip3 install torch-scatter==2.1.0 -f https://data.pyg.org/whl/torch-1.12.0+${CUDA}.html', where ${CUDA} should be replaced by either cpu, cu117, or cu118 depending on your PyTorch installation.
+Step 2: Install required packages. Open your shell(Linux) or powershell(Windows), 
+```sh
+cd {your python path} && pip3 install -r docker/requirements.txt && pip3 install torch-scatter==2.1.0 -f https://data.pyg.org/whl/torch-1.12.0+${CUDA}.html
+```
+, where ${CUDA} should be replaced by either cpu, cu117, or cu118 depending on your PyTorch installation.
 On my MacOS with M1 cpu,
 
 ```sh

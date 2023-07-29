@@ -29,7 +29,7 @@ skeleton_confs = {
 }
 
 class BVHMotion:
-    def __init__(self, bvh_file, skeleton_name=None, repr='quat', use_velo=True, keep_y_pos=False, padding_last=False, requires_contact=False, joint_reduction=False):
+    def __init__(self, bvh_file, skeleton_name=None, repr='quat', use_velo=True, keep_up_pos=False, up_axis='Y_UP', padding_last=False, requires_contact=False, joint_reduction=False):
         '''
         BVHMotion constructor
         Args:
@@ -37,7 +37,8 @@ class BVHMotion:
             skelton_name     : string, name of predefined skeleton, used when joint_reduction==True or contact==True
             repr             : string, rotation representation, support ['quat', 'repr6d', 'euler'] 
             use_velo         : book, whether to transform the joints positions to velocities
-            keep_y_pos       : bool, whether to keep y position when converting to velocity
+            keep_up_pos      : bool, whether to keep y position when converting to velocity
+            up_axis          : string, string, up axis of the motion data
             padding_last     : bool, whether to pad the last position
             requires_contact : bool, whether to concatenate contact information
             joint_reduction  : bool, whether to reduce the joint number
@@ -50,7 +51,7 @@ class BVHMotion:
         self.joint_reduction = joint_reduction
 
         self.raw_data = BVH_file(bvh_file, skeleton_confs[skeleton_name] if skeleton_name is not None else None, requires_contact, joint_reduction, auto_scale=True)
-        self.motion_data = MotionData(self.raw_data.to_tensor(repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_y_pos=keep_y_pos,
+        self.motion_data = MotionData(self.raw_data.to_tensor(repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_up_pos=keep_up_pos, up_axis=up_axis, 
                                       padding_last=padding_last, contact_id=self.raw_data.skeleton.contact_id if requires_contact else None)
     @property
     def repr(self):
@@ -61,8 +62,8 @@ class BVHMotion:
         return self.motion_data.use_velo
 
     @property
-    def keep_y_pos(self):
-        return self.motion_data.keep_y_pos
+    def keep_up_pos(self):
+        return self.motion_data.keep_up_pos
     
     @property
     def padding_last(self):

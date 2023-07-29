@@ -1254,7 +1254,7 @@ class OP_RunSynthesis(bpy.types.Operator):
         motion_data_str = bvh_str.split('MOTION\n')[1].split('\n')[2:-1]
         motion_data = np.array([item.strip().split(' ') for item in motion_data_str], dtype=np.float32)
         
-        motion = [BlenderMotion(motion_data, repr='repr6d', use_velo=True, keep_y_pos=True, padding_last=False)]
+        motion = [BlenderMotion(motion_data, repr='repr6d', use_velo=True, keep_up_pos=True, up_axis=setting.up_axis, padding_last=False)]
         model = GenMM(device='cuda' if torch.cuda.is_available() else 'cpu', silent=True)
         criteria = PatchCoherentLoss(patch_size=setting.patch_size, 
                                      alpha=setting.alpha, 
@@ -1306,6 +1306,8 @@ class GENMM_PT_ControlPanel(bpy.types.Panel):
         exemplar_row = box.row()
         exemplar_row.prop(scene.setting, "start_frame")
         exemplar_row.prop(scene.setting, "end_frame")
+        exemplar_row = box.row()
+        exemplar_row.prop(scene.setting, "up_axis")
 
         box = layout.box()
         box.label(text="Synthesis config:")
@@ -1335,6 +1337,15 @@ class PropertyGroup(bpy.types.PropertyGroup):
         name="End Frame",
         description="End Frame of the Exemplar Moition.",
         default=-1)
+    up_axis: bpy.props.EnumProperty(
+            name="Up Axis", 
+            default='Z_UP',
+            description="Up axis of the Exemplar Moition",
+            items=[('Z_UP', "Z-Up", 'Z Up'),
+                   ('Y_UP', "Y-Up", 'Y Up'),
+                   ('X_UP', "X-Up", 'X Up'),
+                   ]
+            )
     noise: bpy.props.FloatProperty(
         name="Noise Intensity",
         description="Intensity of Noise Added to the Synthesized Motion.",

@@ -33,8 +33,10 @@ args.add_argument('--repr', choices=['repr6d', 'quat', 'euler'], type=str,
                   help='rotation representation, support [epr6d, quat, reuler].')
 args.add_argument('--requires_contact', type=int,
                   help='whether to use contact label.')
-args.add_argument('--keep_y_pos', type=int,
+args.add_argument('--keep_up_pos', type=int,
                   help='whether to do not use velocity and keep the y(up) position.')
+args.add_argument('--up_axis', type=str, choices=['X_UP', 'Y_UP', 'Z_UP'],
+                  help='up axis of the motion.')
 args.add_argument('--padding_last', type=int,
                   help='whether to pad the last position channel to match the rotation dimension.')
 args.add_argument('--joint_reduction', type=int,
@@ -74,17 +76,17 @@ def generate(cfg):
         base_dir = osp.join(
             cfg.output_dir, cfg.input.split('/')[-1].split('.')[0])
         motion_data = [BVHMotion(cfg.input, skeleton_name=cfg.skeleton_name, repr=cfg.repr,
-                                 use_velo=cfg.use_velo, keep_y_pos=cfg.keep_y_pos, padding_last=cfg.padding_last,
+                                 use_velo=cfg.use_velo, keep_up_pos=cfg.keep_up_pos, up_axis=cfg.up_axis, padding_last=cfg.padding_last,
                                  requires_contact=cfg.requires_contact, joint_reduction=cfg.joint_reduction)]
     elif cfg.input.endswith('.txt'):
         base_dir = osp.join(cfg.output_dir, cfg.input.split(
             '/')[-2], cfg.input.split('/')[-1].split('.')[0])
         motion_data = load_multiple_dataset(name_list=cfg.input, skeleton_name=cfg.skeleton_name, repr=cfg.repr,
-                                            use_velo=cfg.use_velo, keep_y_pos=cfg.keep_y_pos, padding_last=cfg.padding_last,
+                                            use_velo=cfg.use_velo, keep_up_pos=cfg.keep_up_pos, up_axis=cfg.up_axis, padding_last=cfg.padding_last,
                                             requires_contact=cfg.requires_contact, joint_reduction=cfg.joint_reduction)
     else:
         raise ValueError('exemplar must be a bvh file or a txt file')
-    prefix = f"s{cfg.seed}+{cfg.num_frames}+{cfg.repr}+use_velo_{cfg.use_velo}+kypose_{cfg.keep_y_pos}+padding_{cfg.padding_last}" \
+    prefix = f"s{cfg.seed}+{cfg.num_frames}+{cfg.repr}+use_velo_{cfg.use_velo}+kypose_{cfg.keep_up_pos}+padding_{cfg.padding_last}" \
              f"+contact_{cfg.requires_contact}+jredu_{cfg.joint_reduction}+n{cfg.noise_sigma}+pyr{cfg.pyr_factor}" \
              f"+r{cfg.coarse_ratio}_{cfg.coarse_ratio_factor}+itr{cfg.num_steps}+ps_{cfg.patch_size}+alpha_{cfg.alpha}" \
              f"+loop_{cfg.loop}"

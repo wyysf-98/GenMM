@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 class MotionData:
-    def __init__(self, data, repr='quat', use_velo=True, keep_y_pos=True, padding_last=False, contact_id=None):
+    def __init__(self, data, repr='quat', use_velo=True, keep_up_pos=True, up_axis='Y', padding_last=False, contact_id=None):
         '''
         BaseMotionData constructor
         Args:
@@ -11,14 +11,16 @@ class MotionData:
                            the channels dim shoud be [n_joints x n_dim_of_rotation + 3(global position)]
             repr         : string, rotation representation, support ['quat', 'repr6d', 'euler'] 
             use_velo     : book, whether to transform the joints positions to velocities
-            keep_y_pos   : bool, whether to keep y position when converting to velocity
+            keep_up_pos  : bool, whether to keep up position when converting to velocity
+            up_axis      : string, string, up axis of the motion data
             padding_last : bool, whether to pad the last position
             contact_id   : list, contact joints id
         '''
         self.data = data 
         self.repr = repr
         self.use_velo = use_velo
-        self.keep_y_pos = keep_y_pos
+        self.keep_up_pos = keep_up_pos
+        self.up_axis = up_axis
         self.padding_last = padding_last
         self.contact_id = contact_id
         self.begin_pos = None
@@ -49,8 +51,13 @@ class MotionData:
             self.n_contact = 0
 
         # whether to keep y position when converting to velocity
-        if self.keep_y_pos:
-            self.velo_mask = [-3, -1]
+        if self.keep_up_pos:
+            if self.up_axis == 'X_UP':
+                self.velo_mask = [-2, -1]
+            elif self.up_axis == 'Y_UP':
+                self.velo_mask = [-3, -1]
+            elif self.up_axis == 'Z_UP':
+                self.velo_mask = [-3, -2]
         else:
             self.velo_mask = [-3, -2, -1]
 

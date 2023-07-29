@@ -7,21 +7,21 @@ from .motion import MotionData
 from utils.transforms import quat2repr6d, euler2mat, mat2quat, repr6d2quat, quat2euler
 
 class BlenderMotion:
-    def __init__(self, motion_data, repr='quat', use_velo=True, keep_y_pos=False, padding_last=False):
+    def __init__(self, motion_data, repr='quat', use_velo=True, keep_up_pos=True, up_axis=None, padding_last=False):
         '''
         BVHMotion constructor
         Args:
             motion_data      : np.array, bvh format data to load from
             repr             : string, rotation representation, support ['quat', 'repr6d', 'euler'] 
             use_velo         : book, whether to transform the joints positions to velocities
-            keep_y_pos       : bool, whether to keep y position when converting to velocity
+            keep_up_pos      : bool, whether to keep y position when converting to velocity
+            up_axis          : string, up axis of the motion data
             padding_last     : bool, whether to pad the last position
             requires_contact : bool, whether to concatenate contact information
         '''
         self.motion_data = motion_data
 
-
-        def to_tensor(motion_data, repr='euler', auto_scale=False, rot_only=False):
+        def to_tensor(motion_data, repr='euler', rot_only=False):
             if repr not in ['euler', 'quat', 'quaternion', 'repr6d']:
                 raise Exception('Unknown rotation representation')
             if repr == 'quaternion' or repr == 'quat' or repr == 'repr6d': # default is euler for blender data
@@ -42,8 +42,8 @@ class BlenderMotion:
             rotations = rotations.reshape(rotations.shape[0], -1)
             return torch.cat((rotations, positions), dim=-1)
         
-        self.motion_data = MotionData(to_tensor(motion_data, repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_y_pos=keep_y_pos,
-                                      padding_last=padding_last, contact_id=None)
+        self.motion_data = MotionData(to_tensor(motion_data, repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, 
+                                      keep_up_pos=keep_up_pos, up_axis=up_axis, padding_last=padding_last, contact_id=None)
     @property
     def repr(self):
         return self.motion_data.repr
@@ -53,8 +53,8 @@ class BlenderMotion:
         return self.motion_data.use_velo
 
     @property
-    def keep_y_pos(self):
-        return self.motion_data.keep_y_pos
+    def keep_up_pos(self):
+        return self.motion_data.keep_up_pos
     
     @property
     def padding_last(self):

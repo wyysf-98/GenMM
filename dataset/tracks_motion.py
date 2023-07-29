@@ -56,7 +56,7 @@ class TracksParser():
         return torch.tensor(self.position, dtype=torch.float32)
 
 class TracksMotion:
-    def __init__(self, tracks_json, scale=1.0, repr='quat', use_velo=True, keep_y_pos=False, padding_last=False):
+    def __init__(self, tracks_json, scale=1.0, repr='quat', use_velo=True, keep_up_pos=True, up_axis='Y_UP', padding_last=False):
         '''
         TracksMotion constructor
         Args:
@@ -64,13 +64,14 @@ class TracksMotion:
             scale            : float, scale of the tracks motion data
             repr             : string, rotation representation, support ['quat', 'repr6d', 'euler'] 
             use_velo         : book, whether to transform the joints positions to velocities
-            keep_y_pos       : bool, whether to keep y position when converting to velocity
+            keep_up_pos      : bool, whether to keep y position when converting to velocity
+            up_axis          : string, string, up axis of the motion data
             padding_last     : bool, whether to pad the last position
         '''
         self.tracks_json = tracks_json
 
         self.raw_data = TracksParser(tracks_json, scale)
-        self.motion_data = MotionData(self.raw_data.to_tensor(repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_y_pos=keep_y_pos,
+        self.motion_data = MotionData(self.raw_data.to_tensor(repr=repr).permute(1, 0).unsqueeze(0), repr=repr, use_velo=use_velo, keep_up_pos=keep_up_pos, up_axis=up_axis, 
                                       padding_last=padding_last, contact_id=None)
     @property
     def repr(self):
@@ -81,8 +82,8 @@ class TracksMotion:
         return self.motion_data.use_velo
 
     @property
-    def keep_y_pos(self):
-        return self.motion_data.keep_y_pos
+    def keep_up_pos(self):
+        return self.motion_data.keep_up_pos
     
     @property
     def padding_last(self):
