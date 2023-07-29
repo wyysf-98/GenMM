@@ -3,10 +3,8 @@ import os.path as osp
 import numpy as np
 import torch
 import torch.nn.functional as F
-import itertools
 
-# from NN.losses import make_criteria
-from .utils.base import logger
+from utils.base import logger
 
 class GenMM:
     def __init__(self, mode = 'random_synthesis', noise_sigma = 1.0, coarse_ratio = 0.2, coarse_ratio_factor = 6, pyr_factor = 0.75, num_stages_limit = -1, device = 'cuda:0', silent = False):

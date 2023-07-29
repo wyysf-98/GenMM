@@ -10,7 +10,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-
+import os
+import sys
 import bpy
 import torch
 import mathutils
@@ -19,18 +20,17 @@ from math import degrees, radians, ceil
 from mathutils import Vector, Matrix, Euler
 from typing import List, Iterable, Tuple, Any, Dict
 
-import sys
-sys.path.append('/opt/anaconda3/lib/python3.7/site-packages')
-
-from .GenMM import GenMM
-from .nearest_neighbor.losses import PatchCoherentLoss
-from .dataset.blender_motion import BlenderMotion
+abs_path = os.path.abspath(__file__)
+sys.path.append(os.path.dirname(abs_path))
+from GenMM import GenMM
+from nearest_neighbor.losses import PatchCoherentLoss
+from dataset.blender_motion import BlenderMotion
 
 bl_info = {
     "name" : "GenMM",
     "author" : "Weiyu Li",
     "description" : "Blender addon for SIGGRAPH paper 'Example-Based Motion Synthesis via Generative Motion Matching'",
-    "blender" : (2, 80, 0),
+    "blender" : (3, 2, 0),
     "version" : (0, 0, 1),
     "location": "3D View",
     "description": "Synthesis novel motions form a few exemplars.",
@@ -1342,7 +1342,7 @@ class PropertyGroup(bpy.types.PropertyGroup):
     num_syn_frames: bpy.props.IntProperty(
         name="Num. of Frames",
         description="Number of the Synthesized Motion.",
-        default=371)
+        default=600)
     patch_size: bpy.props.IntProperty(
         name="Patch Size",
         description="Size for Patch Extraction.",

@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 from .motion import MotionData
-from ..utils.transforms import quat2repr6d, euler2mat, mat2quat, repr6d2quat, quat2euler
+from utils.transforms import quat2repr6d, euler2mat, mat2quat, repr6d2quat, quat2euler
 
 class BlenderMotion:
     def __init__(self, motion_data, repr='quat', use_velo=True, keep_y_pos=False, padding_last=False):

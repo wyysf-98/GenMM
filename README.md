@@ -12,9 +12,10 @@
 
 - [x] Release main code
 - [x] Release blender addon
-- [ ] Detailed README and installation guide
-- [ ] Release skeleton-aware component
+- [x] Detailed README and installation guide
+- [ ] Release skeleton-aware component, WIP as we need to split the joints into groups manually.
 - [ ] Release codes for application
+- [ ] Release codes for evaluation
 
 ## Prerequisite
 
@@ -39,8 +40,8 @@ conda create -n GenMM python=3.8
 conda activate GenMM
 conda install -c pytorch pytorch=1.12.1 torchvision=0.13.1 cudatoolkit=11.3 && \
 pip install -r docker/requirements.txt
+pip install torch-scatter==2.1.1
 ```
-
 
 </details>
 
@@ -53,6 +54,26 @@ python run_random_generation.py -i './data/Malcolm/Gangnam-Style.bvh'
 More configuration can be found in the `run_random_generation.py`.
 We use an Apple M1 and NVIDIA Tesla V100 with 32 GB RAM to generate each motion, which takes about ~0.2s and ~0.05s as mentioned in our paper.
 
+## Blender add-on
+You can install and use the blender add-on with easy installation as our method is efficient and you do not need to install CUDA Toolkit.
+We test our code using blender 3.22.0, and will support 2.8.0 in the future.
+
+Step 1: Find yout blender python path. Usually, for WINDOWS is like 'C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\bin', for Linux is like '/path/to/blender/blender-path/3.2/python/bin/python3' and for MacOS is like '/Applications/Blender.app/Contents/Resources/3.2/python/bin/python3.10'. 
+
+Step 2: Install required packages. Open your shell(Linux) or powershell(Windows), enter 'cd {your python path} && pip3 install -r docker/requirements.txt && pip3 install torch-scatter==2.1.0 -f https://data.pyg.org/whl/torch-1.12.0+${CUDA}.html', where ${CUDA} should be replaced by either cpu, cu117, or cu118 depending on your PyTorch installation.
+On my MacOS with M1 cpu,
+
+```sh
+cd /Applications/Blender.app/Contents/Resources/3.2/python/bin && pip3 install -r docker/requirements_blender.txt && pip3 install torch-scatter==2.1.0 -f https://data.pyg.org/whl/torch-1.12.0+cpu.html
+```
+
+Step 3: Install add-on in blender. [Blender Add-ons Official Tutorial](https://docs.blender.org/manual/en/latest/editors/preferences/addons.html). `edit -> Preferences -> Add-ons -> Install -> Select the downloaded .zip file`
+
+Step 4: Have fun! Click the armature and you will find a `GenMM` tag.
+
+(GPU support) If you have GPU and CUDA Toolskits installed, we automatically dectect the running device.
+
+Feel free to submit an issue if you run into any issues during the installation :)
 
 ## Acknowledgement
 
