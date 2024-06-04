@@ -1,4 +1,4 @@
-# Example-based Motion Synthesis via Generative Motion Matching, ACM Transactions on Graphics (Proceedings of SIGGRAPH 2023) (still ongoing...)
+# Example-based Motion Synthesis via Generative Motion Matching, ACM Transactions on Graphics (Proceedings of SIGGRAPH 2023)
 
 #####  <p align="center"> [Weiyu Li*](https://wyysf-98.github.io/), [Xuelin Chen*†](https://xuelin-chen.github.io/), [Peizhuo Li](https://peizhuoli.github.io/), [Olga Sorkine-Hornung](https://igl.ethz.ch/people/sorkine/), [Baoquan Chen](https://cfcs.pku.edu.cn/baoquan/)</p>
  
@@ -14,7 +14,6 @@
 - [x] Release blender addon
 - [x] Detailed README and installation guide
 - [ ] Release skeleton-aware component, WIP as we need to split the joints into groups manually.
-- [ ] Release codes for application
 - [ ] Release codes for evaluation
 
 ## Prerequisite
