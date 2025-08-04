@@ -138,20 +138,34 @@ class GenMM:
     @torch.no_grad()
     def match_and_blend(synthesized, targets, criteria, n_steps, pbar, ext=None):
         '''
-        Minimizes criteria bewteen synthesized and target
+        Minimizes criteria between synthesized and target
         Args:
             synthesized    : torch.Tensor, optimized motion data
             targets        : torch.Tensor, target motion data
-            criteria       : optimmize target function
+            criteria       : optimize target function
             n_steps        : int, number of steps to optimize
             pbar           : logger
             ext            : extra configurations or constraints (optional)
         '''
         losses = []
+        keyframe_motion = targets[0] if isinstance(targets, list) else targets
+        syn_length = synthesized.shape[-1]
+        km_length = keyframe_motion.shape[-1]
+
+        print("Synthesized shape:", synthesized.shape)
+        print("Keyframe_motion shape:", keyframe_motion.shape)
+
+        # Use the class-level KEYFRAME_INDICES
+        keyframe_indices = GenMM.KEYFRAME_INDICES
+
         for _i in range(n_steps):
             synthesized, loss = criteria(synthesized, targets, ext=ext, return_blended_results=True)
 
-            # Update staus
+            # Manually set the keyframes in synthesized motion to be the ones from the input motion
+            if syn_length >= keyframe_indices.stop and km_length >= keyframe_indices.stop:
+                synthesized[..., keyframe_indices] = keyframe_motion[..., keyframe_indices]
+
+            # Update status
             losses.append(loss.item())
             pbar.step()
             pbar.print()

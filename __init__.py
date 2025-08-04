@@ -40,6 +40,20 @@ bl_info = {
     "category" : "Generic"
 }
 
+def capture_rest_pose(armature_obj):
+    """Capture the rest pose bone data (head, tail, roll) from an armature."""
+    rest_pose_data = {}
+    bpy.ops.object.mode_set(mode='EDIT')
+    arm_data = armature_obj.data
+    for bone in arm_data.edit_bones:
+        rest_pose_data[bone.name] = {
+            'head': bone.head.copy(),
+            'tail': bone.tail.copy(),
+            'roll': bone.roll,
+            'matrix_local': bone.matrix.copy()
+        }
+    bpy.ops.object.mode_set(mode='OBJECT')
+    return rest_pose_data
 
 # This function is modified from
 # https://github.com/bwrsandman/blender-addons/blob/master/io_anim_bvh
@@ -241,6 +255,7 @@ def get_bvh_data(context,
                 return "[\"%s\" root bone]\n" % (self.name)
 
     bones_decorated = [DecoratedBone(bone_name) for bone_name in serialized_names]
+
 
     # Assign parents
     bones_decorated_dict = {dbone.name: dbone for dbone in bones_decorated}
@@ -678,12 +693,11 @@ def bvh_node_dict2armature(
         IMPORT_LOOP=False,
         global_matrix=None,
         use_fps_scale=False,
+        original_rest_pose=None  # New parameter for the original rest pose
 ):
-
     if frame_start < 1:
         frame_start = 1
 
-    # Add the new armature,
     scene = context.scene
     for obj in scene.objects:
         obj.select_set(False)
@@ -696,12 +710,11 @@ def bvh_node_dict2armature(
     arm_ob.select_set(True)
     context.view_layer.objects.active = arm_ob
 
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
 
     bvh_nodes_list = sorted_nodes(bvh_nodes)
 
-    # Get the average bone length for zero length bones, we may not use this.
+    # Get the average bone length for zero length bones
     average_bone_length = 0.0
     nonzero_count = 0
     for bvh_node in bvh_nodes_list:
@@ -710,63 +723,62 @@ def bvh_node_dict2armature(
             average_bone_length += l
             nonzero_count += 1
 
-    # Very rare cases all bones could be zero length???
     if not average_bone_length:
         average_bone_length = 0.1
     else:
-        # Normal operation
         average_bone_length = average_bone_length / nonzero_count
 
-    # XXX, annoying, remove bone.
     while arm_data.edit_bones:
         arm_ob.edit_bones.remove(arm_data.edit_bones[-1])
 
     ZERO_AREA_BONES = []
+    # First pass: Create all bones and assign to temp
     for bvh_node in bvh_nodes_list:
+        bone = arm_data.edit_bones.new(bvh_node.name)
 
-        # New editbone
-        bone = bvh_node.temp = arm_data.edit_bones.new(bvh_node.name)
+        # Use the original rest pose if provided, otherwise fall back to BVH data
+        if original_rest_pose and bvh_node.name in original_rest_pose:
+            bone.head = original_rest_pose[bvh_node.name]['head']
+            bone.tail = original_rest_pose[bvh_node.name]['tail']
+            bone.roll = original_rest_pose[bvh_node.name]['roll']
+        else:
+            bone.head = bvh_node.rest_head_world
+            bone.tail = bvh_node.rest_tail_world
 
-        bone.head = bvh_node.rest_head_world
-        bone.tail = bvh_node.rest_tail_world
-
-        # Zero Length Bones! (an exceptional case)
-        if (bone.head - bone.tail).length < 0.001:
-            print("\tzero length bone found:", bone.name)
-            if bvh_node.parent:
-                ofs = bvh_node.parent.rest_head_local - bvh_node.parent.rest_tail_local
-                if ofs.length:  # is our parent zero length also?? unlikely
-                    bone.tail = bone.tail - ofs
+            # Handle zero-length bones
+            if (bone.head - bone.tail).length < 0.001:
+                print("\tzero length bone found:", bone.name)
+                if bvh_node.parent:
+                    ofs = bvh_node.parent.rest_head_local - bvh_node.parent.rest_tail_local
+                    if ofs.length:
+                        bone.tail = bone.tail - ofs
+                    else:
+                        bone.tail.y = bone.tail.y + average_bone_length
                 else:
                     bone.tail.y = bone.tail.y + average_bone_length
-            else:
-                bone.tail.y = bone.tail.y + average_bone_length
 
-            ZERO_AREA_BONES.append(bone.name)
+                ZERO_AREA_BONES.append(bvh_node.name)
 
+        # Assign the edit bone to the temp attribute
+        bvh_node.temp = bone
+
+    # Second pass: Set parenting and connection
     for bvh_node in bvh_nodes_list:
         if bvh_node.parent:
-            # bvh_node.temp is the Editbone
-
-            # Set the bone parent
+            # Now bvh_node.temp and bvh_node.parent.temp should both be valid
             bvh_node.temp.parent = bvh_node.parent.temp
 
-            # Set the connection state
-            if(
-                    (not bvh_node.has_loc) and
-                    (bvh_node.parent.temp.name not in ZERO_AREA_BONES) and
-                    (bvh_node.parent.rest_tail_local == bvh_node.rest_head_local)
+            if (
+                (not bvh_node.has_loc) and
+                (bvh_node.parent.temp.name not in ZERO_AREA_BONES) and
+                (bvh_node.parent.rest_tail_local == bvh_node.rest_head_local)
             ):
                 bvh_node.temp.use_connect = True
 
-    # Replace the editbone with the editbone name,
-    # to avoid memory errors accessing the editbone outside editmode
+    # Replace temp with bone name for later use
     for bvh_node in bvh_nodes_list:
         bvh_node.temp = bvh_node.temp.name
 
-    # Now Apply the animation to the armature
-
-    # Get armature animation data
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
     pose = arm_ob.pose
@@ -774,16 +786,12 @@ def bvh_node_dict2armature(
 
     if rotate_mode == 'NATIVE':
         for bvh_node in bvh_nodes_list:
-            bone_name = bvh_node.temp  # may not be the same name as the bvh_node, could have been shortened.
+            bone_name = bvh_node.temp
             pose_bone = pose_bones[bone_name]
             pose_bone.rotation_mode = bvh_node.rot_order_str
-
     elif rotate_mode != 'QUATERNION':
         for pose_bone in pose_bones:
             pose_bone.rotation_mode = rotate_mode
-    else:
-        # Quats default
-        pass
 
     context.view_layer.update()
 
@@ -791,11 +799,9 @@ def bvh_node_dict2armature(
     action = bpy.data.actions.new(name=bvh_name)
     arm_ob.animation_data.action = action
 
-    # Replace the bvh_node.temp (currently an editbone)
-    # With a tuple  (pose_bone, armature_bone, bone_rest_matrix, bone_rest_matrix_inv)
     num_frame = 0
     for bvh_node in bvh_nodes_list:
-        bone_name = bvh_node.temp  # may not be the same name as the bvh_node, could have been shortened.
+        bone_name = bvh_node.temp
         pose_bone = pose_bones[bone_name]
         rest_bone = arm_data.bones[bone_name]
         bone_rest_matrix = rest_bone.matrix_local.to_3x3()
@@ -805,19 +811,15 @@ def bvh_node_dict2armature(
 
         bone_rest_matrix_inv.resize_4x4()
         bone_rest_matrix.resize_4x4()
-        bvh_node.temp = (pose_bone, bone, bone_rest_matrix, bone_rest_matrix_inv)
+        bvh_node.temp = (pose_bone, rest_bone, bone_rest_matrix, bone_rest_matrix_inv)
 
         if 0 == num_frame:
             num_frame = len(bvh_node.anim_data)
 
-    # Choose to skip some frames at the beginning. Frame 0 is the rest pose
-    # used internally by this importer. Frame 1, by convention, is also often
-    # the rest pose of the skeleton exported by the motion capture system.
     skip_frame = 1
     if num_frame > skip_frame:
         num_frame = num_frame - skip_frame
 
-    # Create a shared time axis for all animation curves.
     time = [float(frame_start)] * num_frame
     if use_fps_scale:
         dt = scene.render.fps * bvh_frame_time
@@ -827,32 +829,23 @@ def bvh_node_dict2armature(
         for frame_i in range(1, num_frame):
             time[frame_i] += float(frame_i)
 
-    # print("bvh_frame_time = %f, dt = %f, num_frame = %d"
-    #      % (bvh_frame_time, dt, num_frame]))
-
     for i, bvh_node in enumerate(bvh_nodes_list):
         pose_bone, bone, bone_rest_matrix, bone_rest_matrix_inv = bvh_node.temp
 
         if bvh_node.has_loc:
-            # Not sure if there is a way to query this or access it in the
-            # PoseBone structure.
-            data_path = 'pose.bones["%s"].location' % pose_bone.name
-
+            data_path = f'pose.bones["{pose_bone.name}"].location'
             location = [(0.0, 0.0, 0.0)] * num_frame
             for frame_i in range(num_frame):
                 bvh_loc = bvh_node.anim_data[frame_i + skip_frame][:3]
-
                 bone_translate_matrix = Matrix.Translation(
                     Vector(bvh_loc) - bvh_node.rest_head_local)
                 location[frame_i] = (bone_rest_matrix_inv @
                                      bone_translate_matrix).to_translation()
 
-            # For each location x, y, z.
             for axis_i in range(3):
                 curve = action.fcurves.new(data_path=data_path, index=axis_i, action_group=bvh_node.name)
                 keyframe_points = curve.keyframe_points
                 keyframe_points.add(num_frame)
-
                 for frame_i in range(num_frame):
                     keyframe_points[frame_i].co = (
                         time[frame_i],
@@ -862,22 +855,16 @@ def bvh_node_dict2armature(
         if bvh_node.has_rot:
             data_path = None
             rotate = None
-
             if 'QUATERNION' == rotate_mode:
                 rotate = [(1.0, 0.0, 0.0, 0.0)] * num_frame
-                data_path = ('pose.bones["%s"].rotation_quaternion'
-                             % pose_bone.name)
+                data_path = f'pose.bones["{pose_bone.name}"].rotation_quaternion'
             else:
                 rotate = [(0.0, 0.0, 0.0)] * num_frame
-                data_path = ('pose.bones["%s"].rotation_euler' %
-                             pose_bone.name)
+                data_path = f'pose.bones["{pose_bone.name}"].rotation_euler'
 
             prev_euler = Euler((0.0, 0.0, 0.0))
             for frame_i in range(num_frame):
                 bvh_rot = bvh_node.anim_data[frame_i + skip_frame][3:]
-
-                # apply rotation order and convert to XYZ
-                # note that the rot_order_str is reversed.
                 euler = Euler(bvh_rot, bvh_node.rot_order_str[::-1])
                 bone_rotation_matrix = euler.to_matrix().to_4x4()
                 bone_rotation_matrix = (
@@ -893,12 +880,10 @@ def bvh_node_dict2armature(
                         pose_bone.rotation_mode, prev_euler)
                     prev_euler = rotate[frame_i]
 
-            # For each euler angle x, y, z (or quaternion w, x, y, z).
             for axis_i in range(len(rotate[0])):
                 curve = action.fcurves.new(data_path=data_path, index=axis_i, action_group=bvh_node.name)
                 keyframe_points = curve.keyframe_points
                 keyframe_points.add(num_frame)
-
                 for frame_i in range(num_frame):
                     keyframe_points[frame_i].co = (
                         time[frame_i],
@@ -907,12 +892,10 @@ def bvh_node_dict2armature(
 
     for cu in action.fcurves:
         if IMPORT_LOOP:
-            pass  # 2.5 doenst have cyclic now?
-
+            pass
         for bez in cu.keyframe_points:
             bez.interpolation = 'LINEAR'
 
-    # finally apply matrix
     try:
         arm_ob.matrix_world = global_matrix
     except:
@@ -935,6 +918,8 @@ def load(
         use_fps_scale=False,
         update_scene_fps=False,
         update_scene_duration=False,
+        original_rest_pose=None,
+        bvh_name='synsized',  # Added parameter
         report=print,
 ):
     import time
@@ -951,7 +936,6 @@ def load(
     scene = context.scene
     frame_orig = scene.frame_current
 
-    # Broken BVH handling: guess frame rate when it is not contained in the file.
     if bvh_frame_time is None:
         report(
             {'WARNING'},
@@ -960,14 +944,10 @@ def load(
             "frame rate"
         )
         bvh_frame_time = scene.render.fps_base / scene.render.fps
-        # No need to scale the frame rate, as they're equal now anyway.
         use_fps_scale = False
 
     if update_scene_fps:
         _update_scene_fps(context, report, bvh_frame_time)
-
-        # Now that we have a 1-to-1 mapping of Blender frames and BVH frames, there is no need
-        # to scale the FPS any more. It's even better not to, to prevent roundoff errors.
         use_fps_scale = False
 
     if update_scene_duration:
@@ -975,8 +955,6 @@ def load(
 
     t1 = time.time()
     print("\timporting to blender...", end="")
-
-    bvh_name = bpy.path.display_name_from_filepath('synsized')
 
     if target == 'ARMATURE':
         bvh_node_dict2armature(
@@ -986,25 +964,21 @@ def load(
             IMPORT_LOOP=use_cyclic,
             global_matrix=global_matrix,
             use_fps_scale=use_fps_scale,
+            original_rest_pose=original_rest_pose
         )
-
     elif target == 'OBJECT':
         bvh_node_dict2objects(
             context, bvh_name, bvh_nodes,
             rotate_mode=rotate_mode,
             frame_start=frame_start,
             IMPORT_LOOP=use_cyclic,
-            # global_matrix=global_matrix,  # TODO
         )
-
     else:
         report({'ERROR'}, tip_("Invalid target %r (must be 'ARMATURE' or 'OBJECT')") % target)
         return {'CANCELLED'}
 
     print('Done in %.4f\n' % (time.time() - t1))
-
     context.scene.frame_set(frame_orig)
-
     return {'FINISHED'}
 
 
@@ -1215,7 +1189,6 @@ def create_armature_mesh(scene: bpy.types.Scene, armature_object: bpy.types.Obje
 
 
 class OP_AddMesh(bpy.types.Operator):
-
     bl_idname = "genmm.add_mesh"
     bl_label = "Add mesh"
     bl_description = ""
@@ -1227,57 +1200,62 @@ class OP_AddMesh(bpy.types.Operator):
     def execute(self, context: bpy.types.Context):
         name = bpy.context.object.name + "_proxy"
         create_armature_mesh(bpy.context.scene, bpy.context.object, name)
-
         return {'FINISHED'}
 
-
 class OP_RunSynthesis(bpy.types.Operator):
-
     bl_idname = "genmm.run_synthesis"
     bl_label = "Run synthesis"
     bl_description = ""
     bl_options = {"REGISTER", "UNDO"}
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def execute(self, context: bpy.types.Context):
         setting = context.scene.setting
+        original_armature = context.object
+        rest_pose_data = capture_rest_pose(original_armature)
 
-        anim = context.object.animation_data.action
+        anim = original_armature.animation_data.action
         start_frame, end_frame = map(int, anim.frame_range)
-        start_frame = start_frame if setting.start_frame == -1 else start_frame
-        end_frame = end_frame if setting.end_frame == -1 else end_frame
+        start_frame = start_frame if setting.start_frame == -1 else setting.start_frame
+        end_frame = end_frame if setting.end_frame == -1 else setting.end_frame
 
-        bvh_str = get_bvh_data(context, frame_start=start_frame, frame_end=end_frame)
-        frames_str, frame_time_str =  bvh_str.split('MOTION\n')[1].split('\n')[:2]
+        bvh_str = get_bvh_data(context,
+                               frame_start=start_frame,
+                               frame_end=end_frame)
+        frames_str, frame_time_str = bvh_str.split('MOTION\n')[1].split('\n')[:2]
         motion_data_str = bvh_str.split('MOTION\n')[1].split('\n')[2:-1]
         motion_data = np.array([item.strip().split(' ') for item in motion_data_str], dtype=np.float32)
-        
-        motion = [BlenderMotion(motion_data, repr='repr6d', use_velo=True, keep_up_pos=True, up_axis=setting.up_axis, padding_last=False)]
+
         model = GenMM(device='cuda' if torch.cuda.is_available() else 'cpu', silent=True)
         criteria = PatchCoherentLoss(patch_size=setting.patch_size, 
                                      alpha=setting.alpha, 
                                      loop=setting.loop, cache=True)
-    
-        syn = model.run(motion, criteria,
-                        num_frames=str(setting.num_syn_frames),
-                        num_steps=setting.num_steps,
-                        noise_sigma=setting.noise,
-                        patch_size=setting.patch_size, 
-                        coarse_ratio=f'{setting.coarse_ratio}x_nframes',
-                        pyr_factor=setting.pyr_factor)
-        motion_data_str = [' '.join(str(x) for x in item) for item in motion[0].parse(syn)]
-        
-        load(context, bvh_str.split('MOTION\n')[0].split('\n')+['MOTION']+[frames_str]+[frame_time_str]+motion_data_str)
-        # name = bpy.context.object.name + "_proxy"
-        # create_armature_mesh(bpy.context.scene, bpy.context.object, name)
+
+        for i in range(setting.num_output):
+            print(f"Generating motion {i+1} of {setting.num_output}")
+            # Create a new BlenderMotion instance for each iteration
+            motion = [BlenderMotion(motion_data.copy(), repr='repr6d', use_velo=True, 
+                                    keep_up_pos=True, up_axis=setting.up_axis, padding_last=False)]
+            syn = model.run(motion, criteria,
+                            num_frames=str(setting.num_syn_frames),
+                            num_steps=setting.num_steps,
+                            noise_sigma=setting.noise,
+                            patch_size=setting.patch_size, 
+                            coarse_ratio=f'{setting.coarse_ratio}x_nframes',
+                            pyr_factor=setting.pyr_factor)
+            motion_data_str = [' '.join(str(x) for x in item) for item in motion[0].parse(syn)]
+            bvh_name = f"synsized_{i+1}"
+            load(context,
+                 bvh_str.split('MOTION\n')[0].split('\n') + ['MOTION'] + [frames_str] + [frame_time_str] + motion_data_str,
+                 rotate_mode='QUATERNION',
+                 global_matrix=original_armature.matrix_world,
+                 original_rest_pose=rest_pose_data,
+                 target='ARMATURE',
+                 use_fps_scale=False,
+                 bvh_name=bvh_name)
 
         return {'FINISHED'}
 
-
 class GENMM_PT_ControlPanel(bpy.types.Panel):
-
     bl_label = "GenMM"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1295,7 +1273,7 @@ class GENMM_PT_ControlPanel(bpy.types.Panel):
         layout = self.layout
         scene = bpy.context.scene
 
-        ops: List[bpy.type.Operator] = [
+        ops: List[bpy.types.Operator] = [
             OP_AddMesh,
         ]
         for op in ops:
@@ -1319,33 +1297,33 @@ class GENMM_PT_ControlPanel(bpy.types.Panel):
         box.prop(scene.setting, "pyr_factor")
         box.prop(scene.setting, "alpha")
         box.prop(scene.setting, "num_steps")
+        box.prop(scene.setting, "num_output")  # New parameter
 
-        ops: List[bpy.type.Operator] = [
+        ops: List[bpy.types.Operator] = [
             OP_RunSynthesis,
         ]
         for op in ops:
             layout.operator(op.bl_idname, text=op.bl_label)
 
-
 class PropertyGroup(bpy.types.PropertyGroup):
     '''Property container for options and paths of GenMM'''
     start_frame: bpy.props.IntProperty(
         name="Start Frame",
-        description="Start Frame of the Exemplar Moition.",
+        description="Start Frame of the Exemplar Motion.",
         default=1)
     end_frame: bpy.props.IntProperty(
         name="End Frame",
-        description="End Frame of the Exemplar Moition.",
+        description="End Frame of the Exemplar Motion.",
         default=-1)
     up_axis: bpy.props.EnumProperty(
-            name="Up Axis", 
-            default='Z_UP',
-            description="Up axis of the Exemplar Moition",
-            items=[('Z_UP', "Z-Up", 'Z Up'),
-                   ('Y_UP', "Y-Up", 'Y Up'),
-                   ('X_UP', "X-Up", 'X Up'),
-                   ]
-            )
+        name="Up Axis", 
+        default='Z_UP',
+        description="Up axis of the Exemplar Motion",
+        items=[('Z_UP', "Z-Up", 'Z Up'),
+               ('Y_UP', "Y-Up", 'Y Up'),
+               ('X_UP', "X-Up", 'X Up'),
+               ]
+    )
     noise: bpy.props.FloatProperty(
         name="Noise Intensity",
         description="Intensity of Noise Added to the Synthesized Motion.",
@@ -1381,7 +1359,11 @@ class PropertyGroup(bpy.types.PropertyGroup):
         name="Num of Steps",
         description="Number of Optimized Steps.",
         default=5)
-
+    num_output: bpy.props.IntProperty(
+        name="Num. of Output",
+        description="Number of different motions to generate.",
+        min=1,
+        default=1)
 
 classes = [
     OP_AddMesh,
@@ -1389,21 +1371,16 @@ classes = [
     GENMM_PT_ControlPanel,
 ]
 
-
 def register():
     bpy.utils.register_class(PropertyGroup)
     bpy.types.Scene.setting = bpy.props.PointerProperty(type=PropertyGroup)
-
     for cls in classes:
         bpy.utils.register_class(cls)
 
-
 def unregister():
     bpy.utils.unregister_class(PropertyGroup)
-
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
 
 if __name__ == "__main__":
     register()

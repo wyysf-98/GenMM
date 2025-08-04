@@ -1,5 +1,5 @@
-torch==1.12.1
-torchvision==0.13.1
+torch==2.2.0
+torchvision==0.17.0
 tqdm==4.62.3
 unfoldNd==0.2.0
 pyyaml>=5.3.1
